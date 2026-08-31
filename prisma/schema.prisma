@@ -1,0 +1,152 @@
+// PulseClip — data model
+// Maps to the flow described in cahier des charges §8.1/§8.2.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum VideoStatus {
+  uploaded
+  processing
+  completed
+  error
+}
+
+enum PipelineStep {
+  pending
+  extract_audio
+  transcribe
+  prosody
+  detect_sequences
+  done
+}
+
+enum ExportFormat {
+  clip_only
+  clip_and_srt
+}
+
+enum ExportStatus {
+  queued
+  processing
+  completed
+  error
+}
+
+enum UsageService {
+  deepgram
+  anthropic
+}
+
+// One row per user preference set. userId is the Clerk user id — no local
+// User table is needed since Clerk is the source of truth for identity.
+model UserSettings {
+  userId                 String   @id
+  defaultPlatformTarget  String   @default("tiktok")
+  minSequenceScore       Int      @default(60)
+  sequenceDurationMinSec Int      @default(20)
+  sequenceDurationMaxSec Int      @default(90)
+  highlightColor         String   @default("#D85A30")
+  subtitleFont           String   @default("Inter")
+  keywordCase            String   @default("uppercase")
+  emailOnAnalysisComplete Boolean @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+model Video {
+  id               String       @id @default(cuid())
+  userId           String // Clerk user id, always filter by this
+  title            String
+  originalFilename String
+  status           VideoStatus  @default(uploaded)
+  currentStep      PipelineStep @default(pending)
+  errorMessage     String?
+
+  r2Key         String // source video object key in R2
+  audioR2Key    String? // extracted audio track, set during pipeline
+  mimeType      String
+  sizeBytes     BigInt
+  durationSeconds Int?
+
+  transcript    Json? // raw Deepgram word-level transcript
+  prosody       Json? // derived prosodic markers (silences, intensity peaks, laughter)
+
+  sequences Sequence[]
+  usage     Usage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Source video purge per §7 retention policy (30 days after upload).
+  purgeAfter DateTime?
+
+  @@index([userId])
+  @@index([userId, status])
+}
+
+model Sequence {
+  id      String @id @default(cuid())
+  videoId String
+  video   Video  @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  startMs Int
+  endMs   Int
+
+  viralScore    Int // 0-100 composite score, see lib/viral-score.ts
+  scoreSignals  Json // { voiceIntensity, emotionalWordDensity, laughterOrSilence, narrativeCoherence }
+  justification String
+
+  // F-04 recommendations, all produced by the same structured Claude call.
+  onScreenText   Json // [{ text, appearAtMs, emphasisWord? }]
+  subtitleCues   Json // [{ startMs, endMs, text, highlightWords: string[] }]
+  soundDesign    Json // [{ atMs, category: riser|whoosh|impact|silence, description }]
+  musicSuggestion String // mood/genre description, no audio file in MVP
+
+  exports ExportJob[]
+
+  createdAt DateTime @default(now())
+
+  @@index([videoId])
+  @@index([videoId, viralScore])
+}
+
+model ExportJob {
+  id         String       @id @default(cuid())
+  sequenceId String
+  sequence   Sequence     @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+
+  format ExportFormat
+  status ExportStatus @default(queued)
+
+  r2KeyClip String?
+  r2KeySrt  String?
+  shareUrl  String?
+  expiresAt DateTime? // §7: export share links retained 7 days
+
+  errorMessage String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sequenceId])
+}
+
+// Cost tracking per §7 non-functional constraints, so a future billing
+// model (credits/subscription) can be built without a schema change.
+model Usage {
+  id        String       @id @default(cuid())
+  videoId   String
+  video     Video        @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  service   UsageService
+  costUsd   Decimal      @db.Decimal(10, 4)
+  quantity  Float // seconds of audio for Deepgram, tokens for Anthropic
+  createdAt DateTime     @default(now())
+
+  @@index([videoId])
+}

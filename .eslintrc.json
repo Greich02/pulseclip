@@ -1,0 +1,9 @@
+{
+  "extends": "next/core-web-vitals",
+  "rules": {
+    // The app's UI copy is French prose embedded directly in JSX text
+    // nodes — literal apostrophes/quotes are expected throughout, so this
+    // rule would just add noise rather than catch real issues.
+    "react/no-unescaped-entities": "off"
+  }
+}
