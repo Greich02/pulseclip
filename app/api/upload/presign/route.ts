@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       title,
       originalFilename: filename,
       mimeType: contentType,
-      sizeBytes: BigInt(sizeBytes),
+      sizeBytes,
       status: "uploaded",
       r2Key: "", // filled in right after, once we know the video id
     },

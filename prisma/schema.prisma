@@ -1,12 +1,17 @@
 // PulseClip — data model
 // Maps to the flow described in cahier des charges §8.1/§8.2.
+// MongoDB (via Prisma's Mongo connector) instead of the Postgres the spec
+// originally called for — simplification per user request; app code is
+// unaffected since Prisma's query API is the same across connectors. Own
+// model ids are Mongo ObjectIds; UserSettings keeps a plain string id since
+// its primary key is the Clerk user id, not a generated one.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
@@ -46,7 +51,7 @@ enum UsageService {
 // One row per user preference set. userId is the Clerk user id — no local
 // User table is needed since Clerk is the source of truth for identity.
 model UserSettings {
-  userId                 String   @id
+  userId                 String   @id @map("_id")
   defaultPlatformTarget  String   @default("tiktok")
   minSequenceScore       Int      @default(60)
   sequenceDurationMinSec Int      @default(20)
@@ -60,7 +65,7 @@ model UserSettings {
 }
 
 model Video {
-  id               String       @id @default(cuid())
+  id               String       @id @default(auto()) @map("_id") @db.ObjectId
   userId           String // Clerk user id, always filter by this
   title            String
   originalFilename String
@@ -71,7 +76,7 @@ model Video {
   r2Key         String // source video object key in R2
   audioR2Key    String? // extracted audio track, set during pipeline
   mimeType      String
-  sizeBytes     BigInt
+  sizeBytes     Float // bytes; Float (not Int) so 5GB+ files stay exact
   durationSeconds Int?
 
   transcript    Json? // raw Deepgram word-level transcript
@@ -91,8 +96,8 @@ model Video {
 }
 
 model Sequence {
-  id      String @id @default(cuid())
-  videoId String
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  videoId String @db.ObjectId
   video   Video  @relation(fields: [videoId], references: [id], onDelete: Cascade)
 
   startMs Int
@@ -117,8 +122,8 @@ model Sequence {
 }
 
 model ExportJob {
-  id         String       @id @default(cuid())
-  sequenceId String
+  id         String       @id @default(auto()) @map("_id") @db.ObjectId
+  sequenceId String       @db.ObjectId
   sequence   Sequence     @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
 
   format ExportFormat
@@ -140,11 +145,11 @@ model ExportJob {
 // Cost tracking per §7 non-functional constraints, so a future billing
 // model (credits/subscription) can be built without a schema change.
 model Usage {
-  id        String       @id @default(cuid())
-  videoId   String
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  videoId   String       @db.ObjectId
   video     Video        @relation(fields: [videoId], references: [id], onDelete: Cascade)
   service   UsageService
-  costUsd   Decimal      @db.Decimal(10, 4)
+  costUsd   Float
   quantity  Float // seconds of audio for Deepgram, tokens for Anthropic
   createdAt DateTime     @default(now())
 

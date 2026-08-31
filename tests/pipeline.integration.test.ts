@@ -11,7 +11,7 @@ import { sequenceDetectionResponseSchema } from "@/lib/sequence-schema";
  * fields), using a mocked transcript and a mocked Claude tool-use response
  * instead of live Deepgram/Anthropic calls.
  *
- * A true end-to-end run against real services + a live Postgres instance is
+ * A true end-to-end run against real services + a live MongoDB Atlas instance is
  * documented in the README (`npm run dev` + `npm run dev:inngest` with real
  * .env values) — that's outside what a sandboxed unit-test run can cover.
  */

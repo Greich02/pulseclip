@@ -8,13 +8,17 @@ const DEEPGRAM_USD_PER_SECOND = 0.0000717; // nova-2 prerecorded, ~$0.0043/min b
 const ANTHROPIC_USD_PER_INPUT_TOKEN = 0.000003; // Sonnet-class input rate
 const ANTHROPIC_USD_PER_OUTPUT_TOKEN = 0.000015; // Sonnet-class output rate
 
+function round4(value: number): number {
+  return Math.round(value * 10_000) / 10_000;
+}
+
 export async function logDeepgramUsage(videoId: string, audioSeconds: number) {
   await prisma.usage.create({
     data: {
       videoId,
       service: "deepgram",
       quantity: audioSeconds,
-      costUsd: (audioSeconds * DEEPGRAM_USD_PER_SECOND).toFixed(4),
+      costUsd: round4(audioSeconds * DEEPGRAM_USD_PER_SECOND),
     },
   });
 }
@@ -26,7 +30,7 @@ export async function logAnthropicUsage(videoId: string, inputTokens: number, ou
       videoId,
       service: "anthropic",
       quantity: inputTokens + outputTokens,
-      costUsd: cost.toFixed(4),
+      costUsd: round4(cost),
     },
   });
 }

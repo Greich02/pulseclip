@@ -6,10 +6,14 @@ PulseClip transforme une vidéo longue (podcast, interview, conférence, stream)
 fort potentiel viral, chacune livrée avec un pack d'édition prêt à l'emploi : score de viralité, texte à l'écran,
 sous-titres stylés exportables, et suggestions de sound design horodatées.
 
-This repo implements the 7 MVP features from `pulseclip-cahier-des-charges.md` (F-01 → F-07) on the exact stack it
-specifies. All the integration code is real — Clerk, R2, Claude, Inngest, FFmpeg, Resend — but this build was
-assembled without live credentials, a running Postgres instance, or an `ffmpeg` binary on the build machine. See
-**What you need to run it live** below.
+This repo implements the 7 MVP features from `pulseclip-cahier-des-charges.md` (F-01 → F-07). Two deliberate
+deviations from the original spec, both simplifications made along the way — see the notes below: **MongoDB**
+instead of Postgres, and **Deepgram** instead of ElevenLabs for speech-to-text.
+
+> **Database note:** the cahier des charges specifies PostgreSQL. The app now runs on **MongoDB Atlas** instead
+> (`prisma/schema.prisma`, `provider = "mongodb"`) — same free-tier cluster for local dev and production, so
+> there's no local database to run. Application code is unaffected; Prisma's query API is identical across
+> connectors.
 
 > **STT provider note:** the cahier des charges specifies ElevenLabs for speech-to-text. Until those API keys are
 > available, the pipeline uses **Deepgram** instead (`lib/deepgram.ts`) — same word-level-timestamp contract, so
@@ -18,9 +22,9 @@ assembled without live credentials, a running Postgres instance, or an `ffmpeg` 
 
 ## Stack
 
-Next.js 14 (App Router) · Tailwind CSS · Clerk · PostgreSQL + Prisma · Cloudflare R2 · Deepgram Speech-to-Text
-(standing in for ElevenLabs, see note above) · Anthropic Claude (structured tool-use) · Inngest · FFmpeg · Resend ·
-Zod.
+Next.js 14 (App Router) · Tailwind CSS · Clerk · MongoDB Atlas + Prisma (standing in for Postgres, see note above) ·
+Cloudflare R2 · Deepgram Speech-to-Text (standing in for ElevenLabs, see note above) · Anthropic Claude (structured
+tool-use) · Inngest · FFmpeg · Resend · Zod.
 
 ## Project structure
 
@@ -53,20 +57,22 @@ tests/                                Vitest: unit + mocked-pipeline integration
 npm install
 ```
 
-### 2. Local database
+### 2. Database
 
 ```bash
-docker compose up -d
 cp .env.example .env.local
 ```
 
-Fill in `.env.local` — at minimum `DATABASE_URL` (the docker-compose default works as-is) to run migrations; the
-external service keys (Clerk, R2, Deepgram, Anthropic, Inngest, Resend) are needed to actually exercise F-01→F-07
-end to end, but the app builds and type-checks without them.
+Fill in `.env.local` — at minimum `DATABASE_URL` with a MongoDB Atlas connection string (free M0 cluster is
+plenty) to sync the schema; the other service keys (Clerk, R2, Deepgram, Anthropic, Inngest, Resend) are needed to
+actually exercise F-01→F-07 end to end, but the app builds and type-checks without them.
 
 ```bash
-npm run prisma:migrate
+npm run prisma:push
 ```
+
+`prisma db push` syncs collections/indexes straight from `schema.prisma` — Mongo has no SQL migration engine, so
+there's no `migrate` step or migrations folder to keep in sync.
 
 ### 3. Run the app
 
@@ -92,12 +98,13 @@ npm test
 `tests/viral-score.test.ts`, `tests/srt.test.ts`, `tests/sequence-schema.test.ts` cover the §9.1 unit-test
 requirements (score composite, SRT generation, Claude JSON-schema validation). `tests/pipeline.integration.test.ts`
 exercises the same transcript → prosody → Claude-shape → viral-score → SRT composition the Inngest pipeline runs,
-using mocked service responses (§9.2) — a true end-to-end run needs live credentials and Postgres.
+using mocked service responses (§9.2) — a true end-to-end run needs live credentials and a reachable database.
 
 ## What you need to run it live
 
 | Service | Used for | Where to get it |
 |---|---|---|
+| MongoDB Atlas | Database (all models) — standing in for Postgres | cloud.mongodb.com — free M0 cluster, connection string |
 | Clerk | Auth (F-07) | dashboard.clerk.com — copy publishable + secret keys |
 | Cloudflare R2 | Video storage, direct browser upload (F-01, F-05) | Create a bucket + API token with R2 read/write |
 | Deepgram | Speech-to-text with word timestamps (F-02) — standing in for ElevenLabs | console.deepgram.com — API key |

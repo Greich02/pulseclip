@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 
 // Standard Next.js singleton pattern so hot-reload in dev doesn't exhaust
-// the Postgres connection pool.
+// the MongoDB connection pool.
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient();
