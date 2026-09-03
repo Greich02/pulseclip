@@ -5,7 +5,7 @@ import crypto from "node:crypto";
 import { inngest } from "../client";
 import { prisma } from "@/lib/prisma";
 import { downloadObjectToFile, uploadBuffer, exportObjectKey, createPresignedDownloadUrl } from "@/lib/s3";
-import { cutClip, readFileBuffer, cleanupTmp } from "@/lib/ffmpeg";
+import { cutClip, readFileBuffer, cleanupTmp, cleanupStaleTmp } from "@/lib/ffmpeg";
 import { generateSrt } from "@/lib/srt";
 import type { SequenceCandidate } from "@/lib/sequence-schema";
 
@@ -37,10 +37,17 @@ export const exportSequence = inngest.createFunction(
 
     try {
       const clipPath = await step.run("cut-clip", async () => {
+        // See analyze-video.ts: a killed prior attempt's source-video
+        // download can otherwise linger and starve this one of Vercel's
+        // small /tmp quota.
+        await cleanupStaleTmp();
         fs.mkdirSync(workDir, { recursive: true });
         const sourcePath = path.join(workDir, "source" + path.extname(video.originalFilename));
         await downloadObjectToFile(video.r2Key, sourcePath);
-        return cutClip(sourcePath, sequence.startMs, sequence.endMs);
+        const clip = await cutClip(sourcePath, sequence.startMs, sequence.endMs);
+        // Only the (much smaller) cut clip is needed from here on.
+        await cleanupTmp(workDir);
+        return clip;
       });
 
       const clipKey = exportObjectKey(video.userId, video.id, sequence.id, "mp4");
@@ -85,7 +92,7 @@ export const exportSequence = inngest.createFunction(
       });
       throw error;
     } finally {
-      cleanupTmp(path.join(workDir, "noop"));
+      await cleanupStaleTmp();
     }
   }
 );

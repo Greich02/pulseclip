@@ -5,7 +5,7 @@ import crypto from "node:crypto";
 import { inngest } from "../client";
 import { prisma } from "@/lib/prisma";
 import { downloadObjectToFile } from "@/lib/s3";
-import { extractAudio, probeVideo, cleanupTmp } from "@/lib/ffmpeg";
+import { extractAudio, probeVideo, cleanupTmp, cleanupStaleTmp } from "@/lib/ffmpeg";
 import { transcribeAudio, deriveProsody } from "@/lib/deepgram";
 import { detectSequences } from "@/lib/anthropic";
 import { computeViralScore } from "@/lib/viral-score";
@@ -40,6 +40,12 @@ export const analyzeVideo = inngest.createFunction(
       // 1. Extraction audio
       const { audioPath, durationSeconds } = await step.run("extract-audio", async () => {
         await prisma.video.update({ where: { id: videoId }, data: { currentStep: "extract_audio" } });
+        // A previous attempt's source-video download (hundreds of MB) may
+        // still be sitting on this container's disk if it got killed
+        // before its own cleanup ran — sweep it before downloading ours,
+        // or we can hit ENOSPC on Vercel's small /tmp quota before we've
+        // even started.
+        await cleanupStaleTmp();
         fs.mkdirSync(workDir, { recursive: true });
         const sourcePath = path.join(workDir, "source" + path.extname(video.originalFilename));
         await downloadObjectToFile(video.r2Key, sourcePath);
@@ -47,6 +53,10 @@ export const analyzeVideo = inngest.createFunction(
         const rounded = Math.round(metadata.durationSeconds);
         await prisma.video.update({ where: { id: videoId }, data: { durationSeconds: rounded } });
         const audio = await extractAudio(sourcePath);
+        // The much smaller audio.wav (lives in its own tmp dir) is all the
+        // rest of the pipeline needs — free the source video's disk space
+        // now rather than holding it through transcribe/prosody/Claude.
+        await cleanupTmp(workDir);
         return { audioPath: audio, durationSeconds: rounded };
       });
 
@@ -158,7 +168,10 @@ export const analyzeVideo = inngest.createFunction(
       }
       throw error;
     } finally {
-      cleanupTmp(path.join(workDir, "noop"));
+      // workDir (source video) is already freed right after extract-audio
+      // above; this also catches the audio.wav directory and covers the
+      // case where the function threw before that step finished.
+      await cleanupStaleTmp();
     }
   }
 );

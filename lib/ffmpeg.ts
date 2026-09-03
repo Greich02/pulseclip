@@ -9,10 +9,24 @@ import crypto from "node:crypto";
 // the code ready to move the worker to Railway/Fly.io without touching
 // call sites.
 
+const TMP_ROOT = path.join(os.tmpdir(), "pulseclip");
+
 function tmpDir(): string {
-  const dir = path.join(os.tmpdir(), "pulseclip", crypto.randomUUID());
+  const dir = path.join(TMP_ROOT, crypto.randomUUID());
   fs.mkdirSync(dir, { recursive: true });
   return dir;
+}
+
+/**
+ * Defensive sweep for orphaned temp files. Vercel can reuse a warm
+ * container across invocations, and a killed/interrupted run's own
+ * cleanup may never get to run — so a failed attempt's source-video
+ * download (hundreds of MB) can linger and starve the next attempt of
+ * the small (~512MB) /tmp quota with ENOSPC. Call this before writing any
+ * sizeable file to disk.
+ */
+export async function cleanupStaleTmp(): Promise<void> {
+  await fs.promises.rm(TMP_ROOT, { recursive: true, force: true }).catch(() => undefined);
 }
 
 export interface VideoMetadata {
@@ -94,7 +108,10 @@ export function readFileBuffer(filePath: string): Promise<Buffer> {
   return fs.promises.readFile(filePath);
 }
 
-export function cleanupTmp(filePath: string): void {
-  const dir = path.dirname(filePath);
-  fs.rm(dir, { recursive: true, force: true }, () => undefined);
+/** Removes a temp directory this module created, awaited so it reliably
+ * finishes before the serverless function returns (a fire-and-forget
+ * `fs.rm` callback can be torn down mid-flight, leaving the file behind
+ * to eat into the next invocation's /tmp quota). */
+export async function cleanupTmp(dir: string): Promise<void> {
+  await fs.promises.rm(dir, { recursive: true, force: true }).catch(() => undefined);
 }
