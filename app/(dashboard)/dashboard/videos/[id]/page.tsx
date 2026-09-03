@@ -4,6 +4,7 @@ import { SINGLE_USER_ID } from "@/lib/constants";
 import { PipelineSteps } from "@/components/pipeline-steps";
 import { SequenceCard } from "@/components/sequence-card";
 import { AutoRefresh } from "@/components/auto-refresh";
+import { AnalysisTrigger } from "@/components/analysis-trigger";
 import type { ScoreSignals } from "@/lib/sequence-schema";
 
 export default async function VideoStatusPage({ params }: { params: { id: string } }) {
@@ -46,6 +47,8 @@ export default async function VideoStatusPage({ params }: { params: { id: string
           </div>
         ) : (
           <div className="mx-auto max-w-md">
+            {video.status === "uploaded" && <AnalysisTrigger videoId={video.id} variant="start" />}
+            {video.status === "error" && <AnalysisTrigger videoId={video.id} variant="retry" />}
             <PipelineSteps currentStep={video.currentStep} errorMessage={video.errorMessage} />
           </div>
         )}
