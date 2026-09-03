@@ -1,4 +1,6 @@
 import ffmpeg from "fluent-ffmpeg";
+import ffmpegPath from "ffmpeg-static";
+import ffprobeStatic from "ffprobe-static";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
@@ -8,6 +10,12 @@ import crypto from "node:crypto";
 // functions (never a request-handling API route) — see §7/§8.3. This keeps
 // the code ready to move the worker to Railway/Fly.io without touching
 // call sites.
+
+// Vercel's serverless runtime has no system ffmpeg/ffprobe on PATH — these
+// packages bundle static Linux binaries (fetched for the build's platform
+// at `npm install` time) and we point fluent-ffmpeg at them explicitly.
+if (ffmpegPath) ffmpeg.setFfmpegPath(ffmpegPath);
+ffmpeg.setFfprobePath(ffprobeStatic.path);
 
 const TMP_ROOT = path.join(os.tmpdir(), "pulseclip");
 
