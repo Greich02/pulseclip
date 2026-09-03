@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { SINGLE_USER_ID } from "@/lib/constants";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-
   const job = await prisma.exportJob.findFirst({
-    where: { id: params.id, sequence: { video: { userId } } },
+    where: { id: params.id, sequence: { video: { userId: SINGLE_USER_ID } } },
   });
   if (!job) return NextResponse.json({ error: "not_found" }, { status: 404 });
 

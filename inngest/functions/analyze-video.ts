@@ -2,7 +2,6 @@ import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
 import crypto from "node:crypto";
-import { clerkClient } from "@clerk/nextjs/server";
 import { inngest } from "../client";
 import { prisma } from "@/lib/prisma";
 import { downloadObjectToFile } from "@/lib/s3";
@@ -71,10 +70,11 @@ export const analyzeVideo = inngest.createFunction(
 
       // 4. Détection des séquences (Claude)
       const settings = await step.run("load-settings", async () => {
-        return (
-          (await prisma.userSettings.findUnique({ where: { userId } })) ??
-          (await prisma.userSettings.create({ data: { userId } }))
-        );
+        return prisma.userSettings.upsert({
+          where: { userId },
+          update: {},
+          create: { userId },
+        });
       });
 
       const { sequences } = await step.run("detect-sequences", async () => {
@@ -126,10 +126,8 @@ export const analyzeVideo = inngest.createFunction(
 
       await step.run("notify-complete", async () => {
         if (!settings.emailOnAnalysisComplete) return;
-        const clerk = await clerkClient();
-        const user = await clerk.users.getUser(userId);
-        const email = user.primaryEmailAddress?.emailAddress ?? user.emailAddresses[0]?.emailAddress;
-        if (!email) return;
+        const email = process.env.NOTIFICATION_EMAIL;
+        if (!email) return; // no login/user record to pull an address from — single-user app
         await sendAnalysisCompleteEmail({
           to: email,
           videoTitle: video.title,
@@ -146,9 +144,7 @@ export const analyzeVideo = inngest.createFunction(
         data: { status: "error", errorMessage: message },
       });
       try {
-        const clerk = await clerkClient();
-        const user = await clerk.users.getUser(userId);
-        const email = user.primaryEmailAddress?.emailAddress ?? user.emailAddresses[0]?.emailAddress;
+        const email = process.env.NOTIFICATION_EMAIL;
         if (email) {
           await sendAnalysisFailedEmail({
             to: email,

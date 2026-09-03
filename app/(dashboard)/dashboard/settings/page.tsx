@@ -1,24 +1,30 @@
-import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { SINGLE_USER_ID } from "@/lib/constants";
 import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-export default async function SettingsPage() {
-  const { userId } = await auth();
-  if (!userId) return null;
+// Reads live settings from the database on every request — without this,
+// Next.js has no signal that the page depends on dynamic data (no auth(),
+// cookies(), or searchParams left to imply it) and will statically
+// prerender it once at build time, serving a stale snapshot to everyone.
+export const dynamic = "force-dynamic";
 
-  const settings =
-    (await prisma.userSettings.findUnique({ where: { userId } })) ??
-    (await prisma.userSettings.create({ data: { userId } }));
+export default async function SettingsPage() {
+  // upsert instead of findUnique-then-create: the latter isn't atomic, and
+  // running this page twice concurrently (e.g. Next prerendering it during
+  // build) raced on the unique _id and crashed the build.
+  const settings = await prisma.userSettings.upsert({
+    where: { userId: SINGLE_USER_ID },
+    update: {},
+    create: { userId: SINGLE_USER_ID },
+  });
 
   async function updateSettings(formData: FormData) {
     "use server";
-    const { userId: uid } = await auth();
-    if (!uid) return;
 
     await prisma.userSettings.update({
-      where: { userId: uid },
+      where: { userId: SINGLE_USER_ID },
       data: {
         defaultPlatformTarget: String(formData.get("defaultPlatformTarget") ?? "tiktok"),
         minSequenceScore: Number(formData.get("minSequenceScore") ?? 60),

@@ -1,17 +1,14 @@
 import { notFound } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { SINGLE_USER_ID } from "@/lib/constants";
 import { PipelineSteps } from "@/components/pipeline-steps";
 import { SequenceCard } from "@/components/sequence-card";
 import { AutoRefresh } from "@/components/auto-refresh";
 import type { ScoreSignals } from "@/lib/sequence-schema";
 
 export default async function VideoStatusPage({ params }: { params: { id: string } }) {
-  const { userId } = await auth();
-  if (!userId) return null;
-
   const video = await prisma.video.findFirst({
-    where: { id: params.id, userId },
+    where: { id: params.id, userId: SINGLE_USER_ID },
     include: { sequences: { orderBy: { viralScore: "desc" } } },
   });
   if (!video) notFound();

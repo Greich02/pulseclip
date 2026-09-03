@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { UserButton } from "@clerk/nextjs";
 import { LayoutGrid, Upload, Settings } from "lucide-react";
 
 /** Ported from .sidebar / .topbar in the design mockup (screen 01). */
@@ -13,9 +12,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <SideIcon href="/dashboard/upload" icon={<Upload size={16} />} label="Nouvelle vidéo" />
           <SideIcon href="/dashboard/settings" icon={<Settings size={16} />} label="Paramètres" />
         </nav>
-        <div className="mt-auto">
-          <UserButton afterSignOutUrl="/" />
-        </div>
       </aside>
       <div className="flex flex-1 flex-col">{children}</div>
     </div>

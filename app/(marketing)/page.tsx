@@ -12,11 +12,8 @@ export default function MarketingPage() {
           <span className="text-[15px] font-semibold">PulseClip</span>
         </div>
         <div className="flex gap-2">
-          <Link href="/sign-in">
-            <Button variant="ghost">Connexion</Button>
-          </Link>
-          <Link href="/sign-up">
-            <Button variant="primary">Essayer gratuitement</Button>
+          <Link href="/dashboard">
+            <Button variant="primary">Ouvrir le dashboard</Button>
           </Link>
         </div>
       </header>
@@ -30,7 +27,7 @@ export default function MarketingPage() {
           priorisée de séquences à fort potentiel viral, avec pour chacune un pack d'édition prêt à l'emploi.
         </p>
         <div className="mt-8 flex justify-center gap-3">
-          <Link href="/sign-up">
+          <Link href="/dashboard/upload">
             <Button variant="primary" size="lg">
               Uploader ma première vidéo
             </Button>

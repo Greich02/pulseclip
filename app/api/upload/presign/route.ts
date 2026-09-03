@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { SINGLE_USER_ID } from "@/lib/constants";
 import { createPresignedUploadUrl, videoObjectKey } from "@/lib/s3";
 
 // F-01: mirrors client-side validation server-side — never trust the browser.
@@ -16,8 +16,7 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const userId = SINGLE_USER_ID;
 
   const json = await req.json().catch(() => null);
   const parsed = bodySchema.safeParse(json);

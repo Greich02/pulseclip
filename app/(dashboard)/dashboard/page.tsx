@@ -1,16 +1,18 @@
 import Link from "next/link";
-import { auth } from "@clerk/nextjs/server";
 import { Film } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { SINGLE_USER_ID } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { VideoCard } from "@/components/video-card";
 
-export default async function DashboardPage() {
-  const { userId } = await auth();
-  if (!userId) return null;
+// Video list must reflect live upload/pipeline status — without auth() (or
+// any other dynamic API) Next.js would otherwise statically prerender this
+// once at build time and serve a stale, empty library to every visitor.
+export const dynamic = "force-dynamic";
 
+export default async function DashboardPage() {
   const videos = await prisma.video.findMany({
-    where: { userId },
+    where: { userId: SINGLE_USER_ID },
     orderBy: { createdAt: "desc" },
     include: { _count: { select: { sequences: true } } },
   });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { SINGLE_USER_ID } from "@/lib/constants";
 import { inngest } from "@/inngest/client";
 
 /**
@@ -9,8 +9,7 @@ import { inngest } from "@/inngest/client";
  * (§8.2 step 3).
  */
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const userId = SINGLE_USER_ID;
 
   const video = await prisma.video.findFirst({ where: { id: params.id, userId } });
   if (!video) return NextResponse.json({ error: "not_found" }, { status: 404 });

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { SINGLE_USER_ID } from "@/lib/constants";
 import { createPresignedDownloadUrl } from "@/lib/s3";
 import { ViralScoreBadge } from "@/components/viral-score-badge";
 import { ExportPanel } from "@/components/export-panel";
@@ -15,11 +15,8 @@ const SIGNAL_LABELS: Record<keyof ScoreSignals, string> = {
 };
 
 export default async function SequenceDetailPage({ params }: { params: { id: string; seqId: string } }) {
-  const { userId } = await auth();
-  if (!userId) return null;
-
   const sequence = await prisma.sequence.findFirst({
-    where: { id: params.seqId, videoId: params.id, video: { userId } },
+    where: { id: params.seqId, videoId: params.id, video: { userId: SINGLE_USER_ID } },
     include: { video: true },
   });
   if (!sequence) notFound();

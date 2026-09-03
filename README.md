@@ -6,9 +6,15 @@ PulseClip transforme une vidéo longue (podcast, interview, conférence, stream)
 fort potentiel viral, chacune livrée avec un pack d'édition prêt à l'emploi : score de viralité, texte à l'écran,
 sous-titres stylés exportables, et suggestions de sound design horodatées.
 
-This repo implements the 7 MVP features from `pulseclip-cahier-des-charges.md` (F-01 → F-07). Two deliberate
-deviations from the original spec, both simplifications made along the way — see the notes below: **MongoDB**
-instead of Postgres, and **Deepgram** instead of ElevenLabs for speech-to-text.
+This repo implements the MVP features from `pulseclip-cahier-des-charges.md` (F-01 → F-06 — F-07 Auth was removed,
+see note below). Three deliberate deviations from the original spec, all simplifications made along the way — see
+the notes below: **no authentication**, **MongoDB** instead of Postgres, and **Deepgram** instead of ElevenLabs for
+speech-to-text.
+
+> **Auth note:** the cahier des charges specifies Clerk (F-07). Authentication has been removed entirely — the app
+> is single-user, no login, no sign-in/sign-up screens. Every `Video`/`UserSettings` row still carries a `userId`
+> column (now always `SINGLE_USER_ID` from `lib/constants.ts`) so a real auth provider can be dropped back in later
+> by swapping that one constant for a session lookup, without a schema change.
 
 > **Database note:** the cahier des charges specifies PostgreSQL. The app now runs on **MongoDB Atlas** instead
 > (`prisma/schema.prisma`, `provider = "mongodb"`) — same free-tier cluster for local dev and production, so
@@ -22,16 +28,15 @@ instead of Postgres, and **Deepgram** instead of ElevenLabs for speech-to-text.
 
 ## Stack
 
-Next.js 14 (App Router) · Tailwind CSS · Clerk · MongoDB Atlas + Prisma (standing in for Postgres, see note above) ·
+Next.js 14 (App Router) · Tailwind CSS · MongoDB Atlas + Prisma (standing in for Postgres, see note above) ·
 Cloudflare R2 · Deepgram Speech-to-Text (standing in for ElevenLabs, see note above) · Anthropic Claude (structured
-tool-use) · Inngest · FFmpeg · Resend · Zod.
+tool-use) · Inngest · FFmpeg · Resend · Zod. No auth layer — see note above.
 
 ## Project structure
 
 ```
 app/
   (marketing)/page.tsx              Landing page
-  sign-in/, sign-up/                Clerk auth screens
   (dashboard)/dashboard/            Library, upload, video status, sequence detail, settings
   api/upload/presign                F-01: presigned R2 upload URL
   api/videos/[id]/notify-uploaded   Triggers the analysis pipeline
@@ -64,8 +69,8 @@ cp .env.example .env.local
 ```
 
 Fill in `.env.local` — at minimum `DATABASE_URL` with a MongoDB Atlas connection string (free M0 cluster is
-plenty) to sync the schema; the other service keys (Clerk, R2, Deepgram, Anthropic, Inngest, Resend) are needed to
-actually exercise F-01→F-07 end to end, but the app builds and type-checks without them.
+plenty) to sync the schema; the other service keys (R2, Deepgram, Anthropic, Inngest, Resend) are needed to
+actually exercise F-01→F-06 end to end, but the app builds and type-checks without them.
 
 ```bash
 npm run prisma:push
@@ -105,12 +110,11 @@ using mocked service responses (§9.2) — a true end-to-end run needs live cred
 | Service | Used for | Where to get it |
 |---|---|---|
 | MongoDB Atlas | Database (all models) — standing in for Postgres | cloud.mongodb.com — free M0 cluster, connection string |
-| Clerk | Auth (F-07) | dashboard.clerk.com — copy publishable + secret keys |
 | Cloudflare R2 | Video storage, direct browser upload (F-01, F-05) | Create a bucket + API token with R2 read/write |
 | Deepgram | Speech-to-text with word timestamps (F-02) — standing in for ElevenLabs | console.deepgram.com — API key |
 | Anthropic | Sequence detection + recommendations (F-02, F-03, F-04) | console.anthropic.com — API key |
 | Inngest | Async pipeline orchestration | Free for local dev via `inngest-cli`; inngest.com for hosted |
-| Resend | Analysis-complete email (F-02, §6) | resend.com — API key + verified sender domain |
+| Resend | Analysis-complete email (F-02, §6) | resend.com — API key + verified sender domain, plus `NOTIFICATION_EMAIL` (single-user app, no login to pull an address from) |
 | ffmpeg binary | Audio extraction + clip export | Install locally, or bake into the worker's Docker image |
 
 ## Design system
