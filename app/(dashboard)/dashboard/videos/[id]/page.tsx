@@ -5,6 +5,7 @@ import { PipelineSteps } from "@/components/pipeline-steps";
 import { SequenceCard } from "@/components/sequence-card";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { AnalysisTrigger } from "@/components/analysis-trigger";
+import { DeleteVideoButton } from "@/components/delete-video-button";
 import type { ScoreSignals } from "@/lib/sequence-schema";
 
 export default async function VideoStatusPage({ params }: { params: { id: string } }) {
@@ -19,8 +20,14 @@ export default async function VideoStatusPage({ params }: { params: { id: string
   return (
     <>
       <AutoRefresh active={isActive} />
-      <div className="flex h-[52px] items-center border-b border-border px-6">
-        <span className="text-sm font-medium">{video.title}</span>
+      <div className="flex h-[52px] items-center justify-between border-b border-border px-6">
+        <span className="truncate text-sm font-medium">{video.title}</span>
+        <DeleteVideoButton
+          videoId={video.id}
+          videoTitle={video.title}
+          variant="labeled"
+          redirectTo="/dashboard"
+        />
       </div>
       <div className="flex-1 overflow-y-auto p-6">
         {video.status === "completed" ? (

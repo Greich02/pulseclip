@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PlayCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge, STATUS_LABELS, STATUS_VARIANTS } from "@/components/ui/badge";
+import { DeleteVideoButton } from "@/components/delete-video-button";
 import { formatDuration } from "@/lib/utils";
 
 export interface VideoCardData {
@@ -23,7 +24,12 @@ export function VideoCard({ video }: { video: VideoCardData }) {
 
   return (
     <Link href={`/dashboard/videos/${video.id}`}>
-      <Card className="overflow-hidden transition-colors hover:border-border-md">
+      <Card className="group relative overflow-hidden transition-colors hover:border-border-md">
+        <DeleteVideoButton
+          videoId={video.id}
+          videoTitle={video.title}
+          className="absolute right-2 top-2 z-10"
+        />
         <div className="flex h-[70px] items-center justify-center bg-gradient-to-br from-bg-3 to-bg-2 text-t-3">
           <PlayCircle size={22} />
         </div>
