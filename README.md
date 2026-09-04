@@ -89,9 +89,12 @@ npm run dev:inngest    # Inngest dev server, points at /api/inngest
 ```
 
 FFmpeg must be installed and on `PATH` for the analysis and export pipelines to run locally (`ffmpeg -version` to
-check). In production this logic is meant to run on a separate worker (Railway/Fly.io) per §3.2/§7 of the spec —
-`lib/ffmpeg.ts` is only ever called from Inngest functions, never from a request-handling route, so moving it later
-needs no refactor.
+check). In production (running as Vercel serverless functions, not a separate worker — see deviation note above)
+`lib/ffmpeg.ts` instead points fluent-ffmpeg at the `ffmpeg-static`/`ffprobe-static` npm packages, which bundle a
+prebuilt Linux binary; `next.config.mjs`'s `serverComponentsExternalPackages` keeps those two packages (and
+fluent-ffmpeg) out of the webpack bundle, which matters because their own `__dirname`-relative binary lookup breaks
+if they get inlined into it. `lib/ffmpeg.ts` is still only ever called from Inngest functions, never from a
+request-handling route, so moving this to a real separate worker later needs no refactor.
 
 ### 4. Tests
 
@@ -115,7 +118,7 @@ using mocked service responses (§9.2) — a true end-to-end run needs live cred
 | Anthropic | Sequence detection + recommendations (F-02, F-03, F-04) | console.anthropic.com — API key |
 | Inngest | Async pipeline orchestration | Free for local dev via `inngest-cli`; inngest.com for hosted |
 | Resend | Analysis-complete email (F-02, §6) | resend.com — API key + verified sender domain, plus `NOTIFICATION_EMAIL` (single-user app, no login to pull an address from) |
-| ffmpeg binary | Audio extraction + clip export | Install locally, or bake into the worker's Docker image |
+| ffmpeg binary | Audio extraction + clip export | Install locally for dev; in production it's the `ffmpeg-static`/`ffprobe-static` npm packages (already wired up) — no separate install needed |
 
 ## Design system
 
