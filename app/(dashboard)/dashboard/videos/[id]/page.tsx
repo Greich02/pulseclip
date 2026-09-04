@@ -22,12 +22,7 @@ export default async function VideoStatusPage({ params }: { params: { id: string
       <AutoRefresh active={isActive} />
       <div className="flex h-[52px] items-center justify-between border-b border-border px-6">
         <span className="truncate text-sm font-medium">{video.title}</span>
-        <DeleteVideoButton
-          videoId={video.id}
-          videoTitle={video.title}
-          variant="labeled"
-          redirectTo="/dashboard"
-        />
+        <DeleteVideoButton videoId={video.id} variant="labeled" redirectTo="/dashboard" />
       </div>
       <div className="flex-1 overflow-y-auto p-6">
         {video.status === "completed" ? (
